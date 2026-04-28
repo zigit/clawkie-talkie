@@ -32,22 +32,39 @@ The daemon uses `@roamhq/wrtc` for native WebRTC. Its package includes prebuilt 
 
 The currently supported install path is from this repo. There is no published npm package installer for the daemon yet.
 
+Install agents should follow the same safety pattern as LobsterLink:
+
+1. Fetch a clean public copy of `davidguttman/clawkietalkie`.
+2. Put the durable source checkout inside the installing agent's OpenClaw workspace.
+3. Inspect it before trusting it or running install commands.
+
+OpenClaw's default workspace is `~/.openclaw/workspace`, but `agents.defaults.workspace` may point somewhere else. The agent should use its active workspace directory as the source of truth. In normal tool execution, that is the current working directory.
+
+The default durable source path is `<agent-workspace>/clawkie-talkie`. Do not install from a local development checkout, a temporary worktree, or another agent's workspace.
+
+Example Git flow from the agent workspace:
+
 ```bash
-mkdir -p ~/src
-cd ~/src
-git clone https://github.com/davidguttman/clawkie-talkie.git
-cd clawkie-talkie
+workspace="$(pwd)"
+target="$workspace/clawkie-talkie"
+if [ -e "$target" ]; then
+  echo "$target already exists; preserve .env and stop unless this is an approved update" >&2
+  exit 1
+fi
+git clone https://github.com/davidguttman/clawkietalkie.git "$target"
+cd "$target"
+# inspect this repo before continuing
 npm install
 ```
 
-If you downloaded a ZIP instead of using Git, unzip it into a durable folder such as `~/src/clawkie-talkie`, then run `npm install` from that folder.
+If you downloaded a ZIP instead of using Git, extract it locally, inspect it, then copy or move the extracted repo into `<agent-workspace>/clawkie-talkie` before running `npm install`. Do not run the persistent daemon from a temporary unzip directory. If `<agent-workspace>/clawkie-talkie` already exists, preserve `.env` and stop before replacing anything unless the user explicitly approved an update.
 
 ## Configure the daemon
 
 Create a repo-root `.env` file. Do not commit it or share it.
 
 ```bash
-cd ~/src/clawkie-talkie
+cd <agent-workspace>/clawkie-talkie
 cp .env.example .env
 chmod 600 .env
 ```
@@ -91,7 +108,7 @@ Treat the ID as private-ish: it is not your xAI key, but it does identify the ro
 From the repo root:
 
 ```bash
-cd ~/src/clawkie-talkie
+cd <agent-workspace>/clawkie-talkie
 npm run daemon
 ```
 
@@ -115,7 +132,7 @@ https://clawkietalkie.app/voice#host=<host>&session=<session>&channel=<channel>&
 
 ## Keep it running on macOS with launchd
 
-Use a per-user LaunchAgent. Replace `/Users/YOU/src/clawkie-talkie` with the real absolute path.
+Use a per-user LaunchAgent. Replace `/Users/YOU/.openclaw/workspace/clawkie-talkie` with the real absolute workspace path.
 
 Create `~/Library/LaunchAgents/app.clawkietalkie.daemon.plist`:
 
@@ -128,13 +145,13 @@ Create `~/Library/LaunchAgents/app.clawkietalkie.daemon.plist`:
   <string>app.clawkietalkie.daemon</string>
 
   <key>WorkingDirectory</key>
-  <string>/Users/YOU/src/clawkie-talkie</string>
+  <string>/Users/YOU/.openclaw/workspace/clawkie-talkie</string>
 
   <key>ProgramArguments</key>
   <array>
     <string>/bin/zsh</string>
     <string>-lc</string>
-    <string>cd /Users/YOU/src/clawkie-talkie &amp;&amp; npm run daemon</string>
+    <string>cd /Users/YOU/.openclaw/workspace/clawkie-talkie &amp;&amp; npm run daemon</string>
   </array>
 
   <key>EnvironmentVariables</key>
@@ -184,7 +201,7 @@ If you installed Node with `nvm`, `asdf`, or another shell-managed tool, launchd
 
 ## Keep it running on Linux with systemd user services
 
-Use a per-user systemd service. This starts after your user session starts. Replace paths if you installed somewhere other than `~/src/clawkie-talkie`.
+Use a per-user systemd service. This starts after your user session starts. Replace paths if your OpenClaw workspace is not `%h/.openclaw/workspace`.
 
 Create `~/.config/systemd/user/clawkie-talkie.service`:
 
@@ -196,7 +213,7 @@ After=network-online.target
 
 [Service]
 Type=simple
-WorkingDirectory=%h/src/clawkie-talkie
+WorkingDirectory=%h/.openclaw/workspace/clawkie-talkie
 Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
 ExecStart=/usr/bin/env npm run daemon
 Restart=always
@@ -263,7 +280,7 @@ There is no inbound HTTP port for the daemon to expose. It reaches the signaling
 If installed from Git:
 
 ```bash
-cd ~/src/clawkie-talkie
+cd <agent-workspace>/clawkie-talkie
 git pull --ff-only
 npm install
 ```

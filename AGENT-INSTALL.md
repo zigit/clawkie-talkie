@@ -25,20 +25,48 @@ Do not install credentials into the browser. The daemon holds credentials locall
 
 Public GitHub repo: `davidguttman/clawkietalkie`
 
-## Fetch and inspect
+## Fetch, inspect, and install location
 
-1. Download or clone the repo into a durable source folder such as `~/src/clawkie-talkie`.
-2. Inspect the repo before installing. Expected items include:
-   - Node/npm project files
-   - TypeScript daemon under `daemon/src/`
-   - browser client under `client/`
-   - OpenClaw skill under `openclaw/clawkie-voice-handoff/SKILL.md`
-   - docs under `docs/`
-3. Suspicious items to stop on:
-   - unexpected credential collection beyond `.env` / user-provided API key
-   - unexpected remote shell execution
-   - install-time scripts that mutate global state without user consent
-   - code that exfiltrates `.env`, OpenClaw config, browser cookies, or arbitrary files
+Use the same safety shape as LobsterLink: fetch a clean public copy, inspect it before trusting it, then run the long-lived install from a durable path. For Clawkie Talkie, that durable path should be inside the installing agent's OpenClaw workspace, because this is an agent-owned daemon plus skill install. Do not use a local development checkout, a temporary worktree, or another agent's workspace.
+
+OpenClaw's default workspace is `~/.openclaw/workspace`, but `agents.defaults.workspace` may point somewhere else. Agents should use their active workspace directory as the source of truth. In normal tool execution, that is the current working directory.
+
+Default target inside the agent workspace:
+
+```text
+<agent-workspace>/clawkie-talkie
+```
+
+Example Git flow from the agent workspace:
+
+```bash
+workspace="$(pwd)"
+target="$workspace/clawkie-talkie"
+if [ -e "$target" ]; then
+  echo "$target already exists; preserve .env and stop unless this is an approved update" >&2
+  exit 1
+fi
+git clone https://github.com/davidguttman/clawkietalkie.git "$target"
+cd "$target"
+# inspect this repo before running install commands
+```
+
+If using the ZIP, download and extract it locally, inspect it, then copy or move the extracted repo to `<agent-workspace>/clawkie-talkie` before running install commands. Do not run the persistent daemon from a temporary unzip directory. If `<agent-workspace>/clawkie-talkie` already exists, preserve `.env` and stop before replacing anything unless the user explicitly approved an update.
+
+Expected items to inspect before installing:
+
+- Node/npm project files
+- TypeScript daemon under `daemon/src/`
+- browser client under `client/`
+- OpenClaw skill under `openclaw/clawkie-voice-handoff/SKILL.md`
+- docs under `docs/`
+
+Suspicious items to stop on:
+
+- unexpected credential collection beyond `.env` / user-provided API key
+- unexpected remote shell execution
+- install-time scripts that mutate global state without user consent
+- code that exfiltrates `.env`, OpenClaw config, browser cookies, or arbitrary files
 
 ## Prerequisites to verify
 
